@@ -37,7 +37,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            docker pull krzyniot/devops-project
-            docker stop devops || true
-            docker rm devops || true
-            docker run -d -p 5000:5000 --name devops krzyniot/devops-project
+            sudo docker pull krzyniot/devops-project
+            sudo docker stop devops || true
+            sudo docker rm devops || true
+            sudo docker run -d -p 5000:5000 --name devops --restart always krzyniot/devops-project
