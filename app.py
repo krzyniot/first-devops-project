@@ -2,11 +2,11 @@ from flask import Flask
 
 app = Flask(__name__)
 
-VERSION ="3.0"
+VERSION ="4.0"
 
 @app.route("/")
 def home():
-    return f"DevOps Project - version {VERSION}"
+    return f"DevOps Project Krzysztof Trojańczuk - version {VERSION}"
 
 @app.route("/health")
 def health():
