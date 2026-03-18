@@ -3,7 +3,7 @@ from prometheus_client import Counter, generate_latest
 
 app = Flask(__name__)
 
-VERSION = "4.0"
+VERSION = "5.0"
 
 REQUEST_COUNT = Counter("app_requests_total", "Total requests")
 
