@@ -1,11 +1,15 @@
 from flask import Flask
+from prometheus_client import Counter, generate_latest
 
 app = Flask(__name__)
 
-VERSION ="4.0"
+VERSION = "4.0"
+
+REQUEST_COUNT = Counter("app_requests_total", "Total requests")
 
 @app.route("/")
 def home():
+    REQUEST_COUNT.inc()
     return f"DevOps Project Krzysztof Trojańczuk - version {VERSION}"
 
 @app.route("/health")
@@ -15,6 +19,10 @@ def health():
 @app.route("/version")
 def version():
     return VERSION
+
+@app.route("/metrics")
+def metrics():
+    return generate_latest()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
