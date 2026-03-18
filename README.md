@@ -2,12 +2,17 @@
 
 ## Opis projektu
 
-Projekt przedstawia kompletny **pipeline DevOps CI/CD** dla prostej aplikacji webowej napisanej w **Python Flask**.
-System automatycznie buduje obraz Dockera, publikuje go w Docker Hub oraz wdraża aplikację na serwerze po każdym `git push`.
+Projekt przedstawia kompletny **pipeline DevOps CI/CD** dla aplikacji webowej napisanej w **Python Flask**.
 
-Aplikacja jest dostępna publicznie przez HTTPS.
+System automatycznie:
 
-Adres aplikacji:
+* buduje obraz Dockera
+* publikuje go w Docker Hub
+* wdraża aplikację na serwerze po każdym `git push`
+
+Dodatkowo projekt został rozszerzony o **monitoring (Prometheus + Grafana)**.
+
+Aplikacja dostępna publicznie przez HTTPS:
 
 ```
 https://projektdyplomowy.ddns.net
@@ -26,17 +31,25 @@ GitHub Actions CI/CD
       ↓
 Docker Image Build
       ↓
-Docker Hub (image repository)
+Docker Hub
       ↓
 SSH Deploy na serwer
       ↓
-Docker Container
+Docker Container (Flask)
       ↓
 Nginx Reverse Proxy
       ↓
 HTTPS (Let's Encrypt)
       ↓
 User / Browser
+
+Dodatkowo:
+
+Flask (/metrics)
+      ↓
+Prometheus
+      ↓
+Grafana (dashboard)
 ```
 
 ---
@@ -52,13 +65,13 @@ User / Browser
 * Docker Hub
 * Nginx
 * Let's Encrypt (SSL)
+* Prometheus
+* Grafana
 * Linux Ubuntu Server
 
 ---
 
 # Funkcjonalność aplikacji
-
-Aplikacja udostępnia kilka endpointów HTTP.
 
 ### Strona główna
 
@@ -66,9 +79,7 @@ Aplikacja udostępnia kilka endpointów HTTP.
 /
 ```
 
-Zwraca wersję aplikacji.
-
-Przykład:
+Zwraca wersję aplikacji:
 
 ```
 DevOps Project Krzysztof Trojańczuk - version 4.0
@@ -82,8 +93,6 @@ DevOps Project Krzysztof Trojańczuk - version 4.0
 /health
 ```
 
-Sprawdza czy aplikacja działa poprawnie.
-
 Odpowiedź:
 
 ```
@@ -92,70 +101,63 @@ OK
 
 ---
 
-### Version endpoint
+### Version
 
 ```
 /version
 ```
 
-Zwraca aktualną wersję aplikacji.
+---
+
+### Metryki (Prometheus)
+
+```
+/metrics
+```
+
+Zawiera dane:
+
+* liczba requestów
+* metryki Pythona
+* metryki procesu
 
 ---
 
 # Konteneryzacja
 
-Aplikacja działa w kontenerze Docker.
-
-Uruchomienie lokalne:
-
 ```
 docker run -d -p 5000:5000 krzyniot/devops-project
-```
-
-Aplikacja dostępna wtedy pod:
-
-```
-http://localhost:5000
 ```
 
 ---
 
 # CI/CD Pipeline
 
-Pipeline jest realizowany przez **GitHub Actions**.
-
-Plik pipeline:
+Plik:
 
 ```
 .github/workflows/pipeline.yml
 ```
 
-Pipeline wykonuje następujące kroki:
+Pipeline:
 
-1. Pobranie kodu z repozytorium
-2. Budowanie obrazu Docker
-3. Publikacja obrazu do Docker Hub
-4. Połączenie SSH z serwerem
-5. Aktualizacja kontenera
+1. checkout kodu
+2. build Docker image
+3. push do Docker Hub
+4. SSH deploy
+5. restart kontenera
 
 ---
 
 # Automatyczny deploy
 
-Po każdym `git push` na branch `main`:
+Po każdym:
 
 ```
 git push
 ```
 
-GitHub Actions automatycznie:
-
-1. buduje obraz Dockera
-2. wysyła obraz do Docker Hub
-3. łączy się z serwerem przez SSH
-4. wykonuje deploy
-
-Komendy wykonywane na serwerze:
+Wykonywane:
 
 ```
 docker pull krzyniot/devops-project
@@ -168,21 +170,13 @@ docker run -d -p 5000:5000 --name devops --restart always krzyniot/devops-projec
 
 # Reverse Proxy i HTTPS
 
-Aplikacja jest wystawiona przez **Nginx**.
-
-Konfiguracja:
-
-```
-/etc/nginx/sites-available/devops
-```
-
-Nginx przekazuje ruch HTTPS na aplikację Flask:
+Nginx:
 
 ```
 Nginx → Flask (port 5000)
 ```
 
-Certyfikat SSL został wygenerowany przez:
+SSL:
 
 ```
 Let's Encrypt (certbot)
@@ -190,64 +184,108 @@ Let's Encrypt (certbot)
 
 ---
 
-# Monitoring (planowane)
+# Monitoring (Prometheus + Grafana)
 
-Projekt może zostać rozszerzony o monitoring:
+## Prometheus
 
-* Prometheus
-* Grafana
-* endpoint `/metrics`
+Zbiera metryki z:
 
-Pozwoli to monitorować:
+* aplikacji Flask (`/metrics`)
+* samego Prometheusa
 
-* liczbę zapytań
-* dostępność aplikacji
-* metryki systemowe
+Konfiguracja:
 
----
-
-# Demonstracja działania CI/CD
-
-Proces demonstracji:
-
-1. Zmiana wersji aplikacji w kodzie
-
-```
-VERSION = "4.0"
-```
-
-2. Commit i push
-
-```
-git add .
-git commit -m "release 4.0"
-git push
-```
-
-3. GitHub Actions uruchamia pipeline
-
-4. Docker image jest budowany i publikowany
-
-5. Serwer automatycznie aktualizuje kontener
-
-6. Strona pokazuje nową wersję
-
-```
-https://projektdyplomowy.ddns.net
+```yaml
+scrape_configs:
+  - job_name: 'devops-app'
+    static_configs:
+      - targets: ['devops:5000']
 ```
 
 ---
 
-# Cel projektu
+## Grafana
 
-Celem projektu było pokazanie pełnego procesu DevOps:
+Dashboard zawiera:
 
-* zarządzanie kodem w Git
-* automatyczne budowanie aplikacji
+###  CPU Usage (server)
+
+* procentowe użycie CPU serwera
+
+### RAM Usage (server)
+
+* procent zajętej pamięci RAM
+
+### Request total
+
+* całkowita liczba requestów (od startu aplikacji)
+
+### Traffic
+
+* liczba requestów na sekundę (ruch w czasie)
+
+---
+
+## Przykładowe zapytania (PromQL)
+
+### CPU usage
+
+```
+100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100)
+```
+
+---
+
+### RAM usage
+
+```
+(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100
+```
+
+---
+
+### Request rate (ruch)
+
+```
+rate(app_requests_total[1m])
+```
+
+---
+
+### Total requests
+
+```
+app_requests_total
+```
+
+---
+
+# Wnioski
+
+Projekt pokazuje pełny proces DevOps:
+
+* CI/CD pipeline
 * konteneryzacja
-* publikacja artefaktów
 * automatyczny deploy
-* wystawienie aplikacji przez HTTPS
+* monitoring aplikacji i infrastruktury
 
-Projekt prezentuje kompletny **workflow CI/CD w środowisku DevOps**.
+Rozdzielone zostały:
 
+* metryki aplikacji (requesty)
+* metryki serwera (CPU, RAM)
+
+---
+
+# Możliwe rozszerzenia
+
+* alerty (email / Telegram / Slack)
+* monitoring kontenerów (cAdvisor)
+* Kubernetes
+* autoskalowanie
+* logowanie (ELK stack)
+
+---
+
+# Autor
+
+Krzysztof Trojańczuk
